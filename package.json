@@ -1,0 +1,14 @@
+{
+  "name": "spotbeat",
+  "private": true,
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "dev": "concurrently -n api,web -c yellow,cyan \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "build": "npm run build -w packages/question-engine && npm run build -w apps/api && npm run build -w apps/web",
+    "test": "npm run test -w packages/question-engine"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  }
+}
