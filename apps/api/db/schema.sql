@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  spotify_user_id TEXT UNIQUE,
+  id TEXT PRIMARY KEY,          -- Spotify user ID
   display_name TEXT,
   country TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -9,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS games (
   id TEXT PRIMARY KEY,
   code TEXT UNIQUE,
-  status TEXT DEFAULT 'LOBBY',
+  status TEXT DEFAULT 'LOBBY',  -- LOBBY | IN_PROGRESS | FINISHED
   host_user_id TEXT,
   config JSON,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
