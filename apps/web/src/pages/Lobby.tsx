@@ -25,18 +25,31 @@ interface LobbyState {
   players: Array<{ userId: string; displayName: string; score: number }>;
 }
 
+function Avatar({ name }: { name: string }) {
+  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const hue = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+  return (
+    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+      style={{ background: `hsl(${hue},50%,35%)`, color: `hsl(${hue},70%,85%)` }}>
+      {initials}
+    </div>
+  );
+}
+
 export default function Lobby() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const sessionId = sessionStorage.getItem('session_id') ?? '';
+  const myUserId = sessionStorage.getItem('spotify_user_id') ?? '';
 
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState('');
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
-  const isHost = lobby ? lobby.hostUserId === sessionStorage.getItem('spotify_user_id') : false;
+  const isHost = lobby?.hostUserId === myUserId;
 
   useEffect(() => {
     if (!sessionId) { navigate(`/join/${code}`); return; }
@@ -58,11 +71,9 @@ export default function Lobby() {
   }, [code, sessionId, navigate]);
 
   const handleMessage = useCallback((msg: { type: string; payload?: unknown }) => {
-    type PlayerPayload = { userId: string; displayName: string };
-
     switch (msg.type) {
       case 'player:joined': {
-        const p = msg.payload as PlayerPayload;
+        const p = msg.payload as { userId: string; displayName: string };
         setPlayers(prev =>
           prev.some(x => x.userId === p.userId)
             ? prev
@@ -92,67 +103,145 @@ export default function Lobby() {
 
   const { send } = useWebSocket(code, handleMessage);
 
+  function copyCode() {
+    navigator.clipboard.writeText(code ?? '').then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   function handleDeviceChange(deviceId: string) {
     setSelectedDevice(deviceId);
     send('device:select', { deviceId });
   }
 
-  function handleStart() {
-    send('game:start');
+  if (!lobby) {
+    return (
+      <div className="page-center">
+        <div className="spinner mx-auto mb-4" />
+        <p style={{ color: 'var(--sp-muted)' }}>Loading lobby...</p>
+      </div>
+    );
   }
 
-  if (!lobby) return <div style={{ padding: 32 }}>Loading lobby...</div>;
+  const readyCount = players.filter(p => p.ready).length;
+  const allReady = readyCount === players.length && players.length > 0;
 
   return (
-    <div style={{ padding: 32, fontFamily: 'sans-serif', maxWidth: 600 }}>
-      <h2>Lobby</h2>
-      <p style={{ fontSize: 28, fontWeight: 700, letterSpacing: 4 }}>{code}</p>
-      <p style={{ color: '#888', marginTop: -8 }}>Share this code with friends</p>
-
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-
-      <h3>Players ({players.length})</h3>
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {players.map(p => (
-          <li key={p.userId} style={{ padding: '8px 0', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
-            <span>{p.displayName} {p.userId === lobby.hostUserId ? '👑' : ''}</span>
-            <span style={{ color: p.ready ? 'green' : '#aaa', fontSize: 12 }}>
-              {p.ready ? 'Ready' : 'Syncing...'}
+    <div className="min-h-screen px-4 py-8" style={{ background: 'var(--sp-black)' }}>
+      <div className="max-w-lg mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <p style={{ color: 'var(--sp-muted)' }} className="text-xs uppercase tracking-widest mb-2">Game Code</p>
+          <button onClick={copyCode} className="group flex items-center gap-3 mx-auto">
+            <span className="text-5xl font-bold tracking-widest" style={{ color: 'var(--sp-green)', fontVariantNumeric: 'tabular-nums' }}>
+              {code}
             </span>
-          </li>
-        ))}
-      </ul>
-
-      {devices.length > 0 && (
-        <div style={{ marginTop: 24 }}>
-          <label><strong>Playback device:</strong></label>
-          <select value={selectedDevice} onChange={e => handleDeviceChange(e.target.value)} style={{ display: 'block', marginTop: 8, padding: '6px 12px', fontSize: 14 }}>
-            <option value="">— select device —</option>
-            {devices.map(d => (
-              <option key={d.id} value={d.id}>{d.name} ({d.type})</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {isHost && (
-        <div style={{ marginTop: 24 }}>
-          <h3>Game config</h3>
-          <label>Questions: <strong>{lobby.config.questionCount}</strong></label>
-          <input type="range" min={5} max={20} step={5} value={lobby.config.questionCount}
-            onChange={e => send('config:update', { questionCount: parseInt(e.target.value) })}
-            style={{ display: 'block', marginTop: 4, width: 200 }}
-          />
-          <button onClick={handleStart} disabled={players.length < 2} style={{ marginTop: 24, padding: '12px 32px', fontSize: 16, cursor: 'pointer', background: '#1DB954', color: '#fff', border: 'none', borderRadius: 4 }}>
-            Start Game
+            <span style={{ color: 'var(--sp-muted)' }} className="text-xs group-hover:text-white transition-colors">
+              {copied ? '✓' : '⎘'}
+            </span>
           </button>
-          {players.length < 2 && <p style={{ color: '#aaa', fontSize: 12 }}>Need at least 2 players</p>}
+          <p style={{ color: 'var(--sp-muted)' }} className="text-sm mt-2">
+            {copied ? 'Copied!' : 'Tap to copy · Share with friends'}
+          </p>
         </div>
-      )}
 
-      {!isHost && (
-        <p style={{ marginTop: 24, color: '#888' }}>Waiting for host to start the game...</p>
-      )}
+        {error && (
+          <div className="rounded-lg px-4 py-3 mb-4 text-sm" style={{ background: 'rgba(241,94,108,0.15)', color: 'var(--sp-error)' }}>
+            {error}
+          </div>
+        )}
+
+        {/* Players */}
+        <div className="card mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-bold">Players</h2>
+            <span className="text-sm" style={{ color: 'var(--sp-muted)' }}>{readyCount}/{players.length} ready</span>
+          </div>
+          <ul className="space-y-3">
+            {players.map(p => (
+              <li key={p.userId} className="flex items-center gap-3">
+                <Avatar name={p.displayName} />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">
+                    {p.displayName}
+                    {p.userId === lobby.hostUserId && <span className="ml-1.5 text-xs" style={{ color: 'var(--sp-green)' }}>host</span>}
+                    {p.userId === myUserId && <span className="ml-1.5 text-xs" style={{ color: 'var(--sp-muted)' }}>you</span>}
+                  </p>
+                </div>
+                <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${p.ready ? 'pulse-ready' : ''}`}
+                  style={{ background: p.ready ? 'var(--sp-green)' : 'var(--sp-border)' }} />
+              </li>
+            ))}
+          </ul>
+          {!allReady && (
+            <p style={{ color: 'var(--sp-muted)' }} className="text-xs mt-4">
+              Waiting for everyone's Spotify data to sync...
+            </p>
+          )}
+        </div>
+
+        {/* Device selector */}
+        {devices.length > 0 && (
+          <div className="card mb-4">
+            <label className="text-sm font-semibold block mb-3">Playback Device</label>
+            <select
+              value={selectedDevice}
+              onChange={e => handleDeviceChange(e.target.value)}
+              className="input text-sm"
+              style={{ cursor: 'pointer' }}
+            >
+              <option value="">— select device —</option>
+              {devices.map(d => (
+                <option key={d.id} value={d.id}>{d.name} · {d.type}</option>
+              ))}
+            </select>
+            <p style={{ color: 'var(--sp-muted)' }} className="text-xs mt-2">Premium only — used for full-track playback</p>
+          </div>
+        )}
+
+        {/* Config + Start (host only) */}
+        {isHost && (
+          <div className="card mb-4">
+            <h2 className="font-bold mb-4">Game Settings</h2>
+            <div className="mb-4">
+              <div className="flex justify-between text-sm mb-2">
+                <span style={{ color: 'var(--sp-muted)' }}>Questions</span>
+                <span className="font-bold" style={{ color: 'var(--sp-green)' }}>{lobby.config.questionCount}</span>
+              </div>
+              <input
+                type="range" min={5} max={20} step={5}
+                value={lobby.config.questionCount}
+                onChange={e => send('config:update', { questionCount: parseInt(e.target.value) })}
+                className="w-full accent-[#1DB954]"
+              />
+              <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--sp-muted)' }}>
+                <span>5</span><span>20</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => send('game:start')}
+              disabled={players.length < 2}
+              className="btn-green w-full py-4 text-base"
+            >
+              Start Game
+            </button>
+            {players.length < 2 && (
+              <p style={{ color: 'var(--sp-muted)' }} className="text-xs text-center mt-2">
+                Need at least 2 players
+              </p>
+            )}
+          </div>
+        )}
+
+        {!isHost && (
+          <div className="text-center py-6">
+            <div className="spinner mx-auto mb-3" />
+            <p style={{ color: 'var(--sp-muted)' }} className="text-sm">Waiting for host to start...</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

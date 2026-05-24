@@ -25,6 +25,9 @@ export const questionAnswers = new Map<string, Map<string, Map<string, string>>>
 // gameCode → active question timer handle
 export const questionTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+// gameCode → questionId → broadcast timestamp (for response_ms)
+export const questionStartTimes = new Map<string, Map<string, number>>();
+
 export function broadcast(gameCode: string, message: object): void {
   const room = rooms.get(gameCode);
   if (!room) return;

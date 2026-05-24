@@ -66,7 +66,7 @@ router.post('/spotify/callback', async (req, res) => {
   // Background: fetch top artists + tracks for question engine
   syncUserData(session_id).catch(err => console.error('[sync] failed', err));
 
-  res.json({ ok: true });
+  res.json({ ok: true, userId: me.id, displayName: me.display_name });
 });
 
 router.post('/disconnect', (req, res) => {

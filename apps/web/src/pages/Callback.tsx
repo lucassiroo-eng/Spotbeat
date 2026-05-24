@@ -35,17 +35,17 @@ export default function Callback() {
 
     const gameCode = sessionStorage.getItem('game_code');
 
-    apiPost('/api/auth/spotify/callback', {
-      code,
-      code_verifier: verifier,
-      session_id: sessionId,
-      redirect_uri: `${window.location.origin}/callback`,
-    })
-      .then(async () => {
+    apiPost<{ ok: boolean; userId: string; displayName: string }>(
+      '/api/auth/spotify/callback',
+      { code, code_verifier: verifier, session_id: sessionId, redirect_uri: `${window.location.origin}/callback` },
+    )
+      .then(async ({ userId, displayName }) => {
+        sessionStorage.setItem('spotify_user_id', userId);
+        sessionStorage.setItem('spotify_display_name', displayName);
+
         if (gameCode) {
           navigate(`/lobby/${gameCode}`);
         } else {
-          // Host flow: create a game
           const { code: newCode } = await apiPost<{ code: string }>('/api/games', {}, sessionId);
           navigate(`/lobby/${newCode}`);
         }
@@ -55,16 +55,24 @@ export default function Callback() {
 
   if (error) {
     return (
-      <div style={{ padding: 32, fontFamily: 'sans-serif' }}>
-        <p style={{ color: 'red' }}>Error: {error}</p>
-        <a href="/">Try again</a>
+      <div className="page-center">
+        <div className="card w-full max-w-sm text-center">
+          <div className="text-4xl mb-4">⚠️</div>
+          <p className="font-semibold mb-1">Something went wrong</p>
+          <p style={{ color: 'var(--sp-error)' }} className="text-sm mb-6">{error}</p>
+          <a href="/" className="btn-outline text-sm">Try again</a>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 32, fontFamily: 'sans-serif' }}>
-      <p>Connecting to Spotify...</p>
+    <div className="page-center">
+      <div className="text-center">
+        <div className="spinner mx-auto mb-5" />
+        <p className="font-medium">Connecting to Spotify...</p>
+        <p style={{ color: 'var(--sp-muted)' }} className="text-sm mt-1">Fetching your music taste</p>
+      </div>
     </div>
   );
 }

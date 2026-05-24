@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sp-green: #1DB954;
+  --sp-green-hover: #1ed760;
+  --sp-black: #121212;
+  --sp-dark: #181818;
+  --sp-card: #282828;
+  --sp-border: #333333;
+  --sp-muted: #B3B3B3;
+  --sp-error: #f15e6c;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    background-color: var(--sp-black);
+    color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100dvh;
+  }
+}
+
+@layer components {
+  .btn-green {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-3 rounded-full font-bold text-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none;
+    background: var(--sp-green);
+  }
+  .btn-green:hover:not(:disabled) { background: var(--sp-green-hover); transform: scale(1.03); }
+  .btn-green:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full font-semibold text-sm uppercase tracking-wider transition-all cursor-pointer bg-transparent text-white;
+    border: 1.5px solid rgba(255,255,255,0.3);
+  }
+  .btn-outline:hover { border-color: white; }
+
+  .card {
+    background: var(--sp-card);
+    @apply rounded-xl p-5;
+  }
+
+  .input {
+    @apply w-full rounded-md px-4 py-2.5 text-sm text-white outline-none transition-all;
+    background: var(--sp-dark);
+    border: 1.5px solid var(--sp-border);
+  }
+  .input:focus { border-color: var(--sp-green); }
+  .input::placeholder { color: var(--sp-muted); }
+
+  .page-center {
+    @apply min-h-screen flex flex-col items-center justify-center px-4;
+    background: var(--sp-black);
+  }
+
+  .answer-btn {
+    @apply w-full text-left px-5 py-4 rounded-xl text-sm font-semibold transition-all cursor-pointer border-2 border-transparent;
+    background: var(--sp-card);
+    color: white;
+  }
+  .answer-btn:hover:not(:disabled) { background: #3E3E3E; }
+  .answer-btn:disabled { cursor: default; }
+  .answer-btn.selected { border-color: var(--sp-green); background: rgba(29,185,84,0.15); }
+  .answer-btn.correct { background: var(--sp-green) !important; color: black !important; border-color: var(--sp-green) !important; }
+  .answer-btn.wrong { background: var(--sp-error) !important; color: white !important; border-color: var(--sp-error) !important; }
+  .answer-btn.dimmed { opacity: 0.35; }
+}
+
+/* Spinner animation */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid rgba(255,255,255,0.15);
+  border-top-color: var(--sp-green);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Pulse for ready indicator */
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(29,185,84,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(29,185,84,0); }
+}
+.pulse-ready { animation: pulse-green 2s ease-in-out infinite; }
+
+/* Audio wave animation */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+.wave-bar {
+  width: 3px; background: var(--sp-green); border-radius: 2px;
+  animation: wave 1s ease-in-out infinite;
+}

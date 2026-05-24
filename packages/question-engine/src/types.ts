@@ -50,6 +50,7 @@ export interface GeneratedQuestion {
   options: { id: string; label: string }[];
   correctAnswerId: string;
   spotifyUri?: string;
+  previewUrl?: string;
   duration?: number;
   genre?: string;
 }

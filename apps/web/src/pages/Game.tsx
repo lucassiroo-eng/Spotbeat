@@ -1,11 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useSpotifyPlayer } from '../hooks/useSpotifyPlayer';
+import { apiGet } from '../utils/api';
 
-interface QuestionOption {
-  id: string;
-  label: string;
-}
+interface QuestionOption { id: string; label: string }
 
 interface Question {
   id: string;
@@ -13,20 +12,123 @@ interface Question {
   prompt: string;
   options: QuestionOption[];
   spotifyUri?: string;
+  previewUrl?: string;
 }
 
-interface PlayerScore {
-  userId: string;
-  displayName: string;
-  score: number;
-}
+interface PlayerScore { userId: string; displayName: string; score: number }
 
 type Phase = 'waiting' | 'question' | 'reveal' | 'finished';
+
+const TOTAL_TIME = 20;
+
+function TimerRing({ timeLeft }: { timeLeft: number }) {
+  const r = 20;
+  const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - timeLeft / TOTAL_TIME);
+  const urgent = timeLeft <= 5;
+  return (
+    <div className="relative w-14 h-14 flex-shrink-0">
+      <svg className="w-14 h-14" viewBox="0 0 48 48" style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx="24" cy="24" r={r} fill="none" stroke="#333" strokeWidth="4" />
+        <circle cx="24" cy="24" r={r} fill="none"
+          stroke={urgent ? 'var(--sp-error)' : 'var(--sp-green)'}
+          strokeWidth="4"
+          strokeDasharray={circ}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: 'stroke-dashoffset 1s linear, stroke 0.3s' }}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-sm font-bold"
+        style={{ color: urgent ? 'var(--sp-error)' : 'white' }}>
+        {timeLeft}
+      </span>
+    </div>
+  );
+}
+
+function AudioWave() {
+  return (
+    <div className="flex items-end gap-0.5 h-5">
+      {[1, 2, 3, 4, 5].map((_, i) => (
+        <div key={i} className="wave-bar" style={{ height: 20, animationDelay: `${i * 0.12}s` }} />
+      ))}
+    </div>
+  );
+}
+
+function Podium({ scores, myUserId }: { scores: PlayerScore[]; myUserId: string }) {
+  const top3 = scores.slice(0, 3);
+  const rest = scores.slice(3);
+  const medals = ['🥇', '🥈', '🥉'];
+
+  return (
+    <div className="min-h-screen px-4 py-8" style={{ background: 'var(--sp-black)' }}>
+      <div className="max-w-lg mx-auto">
+        <h1 className="text-3xl font-bold text-center mb-2">Game Over!</h1>
+        <p style={{ color: 'var(--sp-muted)' }} className="text-center text-sm mb-8">Final standings</p>
+
+        {/* Top 3 podium */}
+        <div className="flex items-end justify-center gap-4 mb-8">
+          {/* 2nd */}
+          {top3[1] && (
+            <div className="text-center flex-1">
+              <div className="text-2xl mb-1">🥈</div>
+              <div className="rounded-t-xl pt-6 pb-4 px-2" style={{ background: 'var(--sp-card)' }}>
+                <p className="text-xs font-semibold truncate">{top3[1].displayName}{top3[1].userId === myUserId ? ' (you)' : ''}</p>
+                <p className="text-lg font-bold mt-1" style={{ color: 'var(--sp-green)' }}>{top3[1].score}</p>
+              </div>
+            </div>
+          )}
+          {/* 1st */}
+          {top3[0] && (
+            <div className="text-center flex-1">
+              <div className="text-3xl mb-1">🥇</div>
+              <div className="rounded-t-xl pt-8 pb-4 px-2" style={{ background: '#1a3a27' }}>
+                <p className="text-xs font-semibold truncate">{top3[0].displayName}{top3[0].userId === myUserId ? ' (you)' : ''}</p>
+                <p className="text-xl font-bold mt-1" style={{ color: 'var(--sp-green)' }}>{top3[0].score}</p>
+              </div>
+            </div>
+          )}
+          {/* 3rd */}
+          {top3[2] && (
+            <div className="text-center flex-1">
+              <div className="text-2xl mb-1">🥉</div>
+              <div className="rounded-t-xl pt-4 pb-4 px-2" style={{ background: 'var(--sp-card)' }}>
+                <p className="text-xs font-semibold truncate">{top3[2].displayName}{top3[2].userId === myUserId ? ' (you)' : ''}</p>
+                <p className="text-lg font-bold mt-1" style={{ color: 'var(--sp-green)' }}>{top3[2].score}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Rest */}
+        {rest.length > 0 && (
+          <div className="card mb-6">
+            {rest.map((s, i) => (
+              <div key={s.userId} className="flex justify-between items-center py-2.5 border-b last:border-0"
+                style={{ borderColor: 'var(--sp-border)' }}>
+                <span className="text-sm">
+                  <span style={{ color: 'var(--sp-muted)' }} className="mr-2">{i + 4}.</span>
+                  {s.displayName}{s.userId === myUserId ? ' (you)' : ''}
+                </span>
+                <span className="font-bold text-sm">{medals[i + 3] ?? ''} {s.score} pts</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <a href="/join" className="btn-green w-full text-center block py-4">Play Again</a>
+      </div>
+    </div>
+  );
+}
 
 export default function Game() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const myUserId = sessionStorage.getItem('spotify_user_id') ?? '';
+  const sessionId = sessionStorage.getItem('session_id') ?? '';
 
   const [phase, setPhase] = useState<Phase>('waiting');
   const [question, setQuestion] = useState<Question | null>(null);
@@ -35,39 +137,37 @@ export default function Game() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [correctAnswerId, setCorrectAnswerId] = useState<string | null>(null);
   const [scores, setScores] = useState<PlayerScore[]>([]);
-  const [timeLeft, setTimeLeft] = useState(20);
+  const [timeLeft, setTimeLeft] = useState(TOTAL_TIME);
   const [myAnswerCorrect, setMyAnswerCorrect] = useState<boolean | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const clearTimer = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
   };
 
   const startTimer = (limitMs: number) => {
     clearTimer();
     setTimeLeft(Math.ceil(limitMs / 1000));
     timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) { clearTimer(); return 0; }
-        return prev - 1;
-      });
+      setTimeLeft(prev => { if (prev <= 1) { clearTimer(); return 0; } return prev - 1; });
     }, 1000);
   };
 
   useEffect(() => () => clearTimer(), []);
 
+  const getToken = useCallback(async () => {
+    const { token } = await apiGet<{ token: string }>('/api/spotify/token', sessionId);
+    return token;
+  }, [sessionId]);
+
+  const { play, stop, isPlaying } = useSpotifyPlayer(getToken);
+
   const handleMessage = useCallback((msg: { type: string; payload?: unknown }) => {
     switch (msg.type) {
       case 'question:new': {
         const p = msg.payload as {
-          question: Question;
-          questionIndex: number;
-          totalQuestions: number;
-          timeLimit: number;
+          question: Question; questionIndex: number; totalQuestions: number; timeLimit: number;
         };
         setQuestion(p.question);
         setQuestionIndex(p.questionIndex);
@@ -77,6 +177,11 @@ export default function Game() {
         setMyAnswerCorrect(null);
         setPhase('question');
         startTimer(p.timeLimit);
+
+        // Playback for GUESS_THE_OWNER
+        if (p.question.type === 'GUESS_THE_OWNER') {
+          play(p.question.spotifyUri, p.question.previewUrl);
+        }
         break;
       }
       case 'answer:ack': {
@@ -90,6 +195,7 @@ export default function Game() {
         setCorrectAnswerId(p.correctAnswerId);
         setScores(p.scores);
         setPhase('reveal');
+        stop();
         break;
       }
       case 'game:ended': {
@@ -97,11 +203,16 @@ export default function Game() {
         clearTimer();
         setScores(p.scores);
         setPhase('finished');
+        stop();
+        break;
+      }
+      case 'error': {
+        console.error('[game ws]', msg.payload);
         break;
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [play, stop, navigate]);
 
   const { send } = useWebSocket(code, handleMessage);
 
@@ -111,120 +222,113 @@ export default function Game() {
     send('answer:submit', { answerId });
   }
 
-  if (phase === 'finished') {
-    return (
-      <div style={{ padding: 32, fontFamily: 'sans-serif', maxWidth: 600 }}>
-        <h2>Game Over!</h2>
-        <h3>Final Scores</h3>
-        <ol style={{ padding: 0, listStyle: 'none' }}>
-          {scores.map((s, i) => (
-            <li key={s.userId} style={{ padding: '12px 0', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 18 }}>
-                {i + 1}. {s.displayName}{s.userId === myUserId ? ' (you)' : ''}
-                {i === 0 ? ' 🏆' : ''}
-              </span>
-              <strong style={{ fontSize: 20 }}>{s.score} pts</strong>
-            </li>
-          ))}
-        </ol>
-        <button
-          onClick={() => navigate('/join')}
-          style={{ marginTop: 32, padding: '12px 28px', fontSize: 16, cursor: 'pointer', background: '#1DB954', color: '#fff', border: 'none', borderRadius: 6 }}
-        >
-          Play Again
-        </button>
-      </div>
-    );
-  }
+  if (phase === 'finished') return <Podium scores={scores} myUserId={myUserId} />;
 
   if (phase === 'waiting') {
     return (
-      <div style={{ padding: 32, fontFamily: 'sans-serif', textAlign: 'center' }}>
-        <h2>Get ready...</h2>
-        <p style={{ color: '#888' }}>First question coming up!</p>
+      <div className="page-center">
+        <div className="spinner mx-auto mb-4" />
+        <p className="font-semibold">Get ready!</p>
+        <p style={{ color: 'var(--sp-muted)' }} className="text-sm mt-1">First question coming up...</p>
       </div>
     );
   }
 
-  if (!question) return <div style={{ padding: 32 }}>Loading...</div>;
+  if (!question) return <div className="page-center"><div className="spinner" /></div>;
+
+  const progress = (questionIndex / totalQuestions) * 100;
 
   return (
-    <div style={{ padding: 32, fontFamily: 'sans-serif', maxWidth: 600 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ color: '#888', fontSize: 14 }}>
-          Question {questionIndex + 1} / {totalQuestions}
-        </span>
-        <span style={{ fontWeight: 700, fontSize: 20, color: timeLeft <= 5 ? '#e74c3c' : '#333' }}>
-          {timeLeft}s
-        </span>
-      </div>
+    <div className="min-h-screen px-4 py-6 flex flex-col" style={{ background: 'var(--sp-black)' }}>
+      <div className="max-w-lg mx-auto w-full flex flex-col flex-1">
 
-      {/* Progress bar */}
-      <div style={{ height: 4, background: '#eee', borderRadius: 2, marginBottom: 24 }}>
-        <div style={{
-          height: '100%', borderRadius: 2,
-          background: timeLeft <= 5 ? '#e74c3c' : '#1DB954',
-          width: `${(questionIndex / totalQuestions) * 100}%`,
-          transition: 'width 0.3s',
-        }} />
-      </div>
-
-      <h2 style={{ marginBottom: 24, lineHeight: 1.4 }}>{question.prompt}</h2>
-
-      {/* Answer options */}
-      <div style={{ display: 'grid', gap: 12 }}>
-        {question.options.map(opt => {
-          let bg = '#f0f0f0';
-          let color = '#333';
-          let border = '2px solid transparent';
-
-          if (phase === 'reveal') {
-            if (opt.id === correctAnswerId) { bg = '#1DB954'; color = '#fff'; }
-            else if (opt.id === selectedAnswer) { bg = '#e74c3c'; color = '#fff'; }
-          } else if (opt.id === selectedAnswer) {
-            bg = '#e8f5e9'; border = '2px solid #1DB954';
-          }
-
-          return (
-            <button
-              key={opt.id}
-              onClick={() => submitAnswer(opt.id)}
-              disabled={!!selectedAnswer || phase === 'reveal'}
-              style={{
-                padding: '14px 20px', fontSize: 16, fontFamily: 'sans-serif',
-                background: bg, color, border, borderRadius: 8,
-                cursor: (selectedAnswer || phase === 'reveal') ? 'default' : 'pointer',
-                textAlign: 'left', transition: 'background 0.2s, border 0.2s',
-              }}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Per-answer feedback while still in question phase */}
-      {myAnswerCorrect !== null && phase === 'question' && (
-        <p style={{ marginTop: 16, fontWeight: 700, fontSize: 18, color: myAnswerCorrect ? '#1DB954' : '#e74c3c' }}>
-          {myAnswerCorrect ? 'Correct!' : 'Wrong!'}
-        </p>
-      )}
-
-      {/* Scores shown during reveal */}
-      {phase === 'reveal' && scores.length > 0 && (
-        <div style={{ marginTop: 28 }}>
-          <h3 style={{ marginBottom: 8 }}>Scores</h3>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {scores.map(s => (
-              <li key={s.userId} style={{ padding: '6px 0', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0' }}>
-                <span>{s.displayName}{s.userId === myUserId ? ' (you)' : ''}</span>
-                <strong>{s.score} pts</strong>
-              </li>
-            ))}
-          </ul>
+        {/* Progress bar + timer */}
+        <div className="flex items-center gap-4 mb-5">
+          <div className="flex-1">
+            <div className="flex justify-between text-xs mb-1.5" style={{ color: 'var(--sp-muted)' }}>
+              <span>Question {questionIndex + 1}</span>
+              <span>{totalQuestions}</span>
+            </div>
+            <div className="h-1 rounded-full" style={{ background: 'var(--sp-border)' }}>
+              <div className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${progress}%`, background: 'var(--sp-green)' }} />
+            </div>
+          </div>
+          <TimerRing timeLeft={timeLeft} />
         </div>
-      )}
+
+        {/* Question card */}
+        <div className="card mb-5 flex-1 flex flex-col justify-between" style={{ minHeight: 180 }}>
+          <div>
+            <span className="text-xs uppercase tracking-widest font-semibold px-2 py-1 rounded"
+              style={{ background: 'rgba(29,185,84,0.15)', color: 'var(--sp-green)' }}>
+              {question.type === 'GUESS_THE_OWNER' ? '🎵 Guess the Owner' : '🎤 Artist Match'}
+            </span>
+            <h2 className="text-xl font-bold mt-4 leading-snug">{question.prompt}</h2>
+          </div>
+
+          {/* Audio indicator */}
+          {isPlaying && (
+            <div className="flex items-center gap-2 mt-4">
+              <AudioWave />
+              <span style={{ color: 'var(--sp-muted)' }} className="text-xs">Now playing</span>
+            </div>
+          )}
+        </div>
+
+        {/* Answer grid */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          {question.options.map(opt => {
+            let cls = 'answer-btn';
+            if (phase === 'reveal') {
+              if (opt.id === correctAnswerId) cls += ' correct';
+              else if (opt.id === selectedAnswer) cls += ' wrong';
+              else cls += ' dimmed';
+            } else if (opt.id === selectedAnswer) {
+              cls += ' selected';
+            }
+            return (
+              <button key={opt.id} className={cls}
+                onClick={() => submitAnswer(opt.id)}
+                disabled={!!selectedAnswer || phase === 'reveal'}>
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Answer feedback */}
+        {myAnswerCorrect !== null && phase === 'question' && (
+          <div className="text-center py-2">
+            <span className="text-lg font-bold" style={{ color: myAnswerCorrect ? 'var(--sp-green)' : 'var(--sp-error)' }}>
+              {myAnswerCorrect ? '✓ Correct!' : '✗ Wrong!'}
+            </span>
+          </div>
+        )}
+
+        {/* Scores during reveal */}
+        {phase === 'reveal' && scores.length > 0 && (
+          <div className="card mt-2">
+            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--sp-muted)' }}>Scores</p>
+            <div className="space-y-2">
+              {scores.map((s, i) => (
+                <div key={s.userId} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm w-5 text-center" style={{ color: 'var(--sp-muted)' }}>{i + 1}</span>
+                    <span className="text-sm font-medium truncate">
+                      {s.displayName}{s.userId === myUserId ? ' (you)' : ''}
+                    </span>
+                  </div>
+                  <span className="font-bold text-sm flex-shrink-0 ml-2" style={{ color: 'var(--sp-green)' }}>
+                    {s.score} pts
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p style={{ color: 'var(--sp-muted)' }} className="text-xs text-center mt-3">Next question in a moment...</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

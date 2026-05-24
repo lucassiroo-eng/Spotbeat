@@ -33,6 +33,7 @@ export const guessTheOwnerGenerator: QuestionGenerator = {
       options,
       correctAnswerId: owner.userId,
       spotifyUri: track.uri,
+      previewUrl: track.preview_url ?? undefined,
     };
   },
 };

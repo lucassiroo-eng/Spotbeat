@@ -5,7 +5,7 @@ import { getSession } from '../../lib/sessions';
 import { db } from '../../lib/db';
 import {
   rooms, deviceChoices, sessionToGame, socketMeta,
-  gameQuestions, currentQuestionIdx, questionAnswers, questionTimers,
+  gameQuestions, currentQuestionIdx, questionAnswers, questionTimers, questionStartTimes,
   broadcast, sendTo,
 } from '../../lib/game-state';
 import { getUserData } from '../../lib/spotify-sync';
@@ -20,10 +20,18 @@ function broadcastQuestion(gameCode: string, idx: number, questions: GeneratedQu
   if (existing) clearTimeout(existing);
 
   const q = questions[idx];
+
+  // Track when this question was sent (for response_ms)
+  if (!questionStartTimes.has(gameCode)) questionStartTimes.set(gameCode, new Map());
+  questionStartTimes.get(gameCode)!.set(q.id, Date.now());
+
   broadcast(gameCode, {
     type: 'question:new',
     payload: {
-      question: { id: q.id, type: q.type, prompt: q.prompt, options: q.options, spotifyUri: q.spotifyUri },
+      question: {
+        id: q.id, type: q.type, prompt: q.prompt, options: q.options,
+        spotifyUri: q.spotifyUri, previewUrl: q.previewUrl,
+      },
       questionIndex: idx,
       totalQuestions: questions.length,
       timeLimit: QUESTION_TIME_LIMIT,
@@ -41,13 +49,28 @@ function endQuestion(gameCode: string, idx: number): void {
   const q = questions[idx];
   const qAnswers = questionAnswers.get(gameCode)?.get(q.id) ?? new Map<string, string>();
 
-  // Award points for correct answers
+  const gameRow = db.prepare('SELECT id FROM games WHERE code = ?').get(gameCode) as { id: string } | undefined;
+
+  // Award points and log events
   for (const [userId, answerId] of qAnswers) {
-    if (answerId === q.correctAnswerId) {
+    const isCorrect = answerId === q.correctAnswerId;
+    if (isCorrect && gameRow) {
       db.prepare(`
         UPDATE game_players SET score = score + 1000
-        WHERE game_id = (SELECT id FROM games WHERE code = ?) AND user_id = ?
-      `).run(gameCode, userId);
+        WHERE game_id = ? AND user_id = ?
+      `).run(gameRow.id, userId);
+    }
+    if (gameRow) {
+      const startTime = questionStartTimes.get(gameCode)?.get(q.id);
+      db.prepare(`
+        INSERT INTO game_events (id, game_id, question_id, user_id, type, payload, response_ms, is_correct)
+        VALUES (?, ?, ?, ?, 'answer', ?, ?, ?)
+      `).run(
+        randomUUID(), gameRow.id, q.id, userId,
+        JSON.stringify({ answerId }),
+        startTime ? Date.now() - startTime : null,
+        isCorrect ? 1 : 0,
+      );
     }
   }
 
@@ -77,6 +100,7 @@ function endQuestion(gameCode: string, idx: number): void {
       currentQuestionIdx.delete(gameCode);
       questionAnswers.delete(gameCode);
       questionTimers.delete(gameCode);
+      questionStartTimes.delete(gameCode);
     }
   }, REVEAL_PAUSE);
 }
@@ -112,14 +136,12 @@ function handle(ws: WebSocket, raw: string): void {
         return;
       }
 
-      // Register in room (works for both LOBBY and IN_PROGRESS — e.g. page reload)
       if (!rooms.has(gameCode)) rooms.set(gameCode, new Set());
       rooms.get(gameCode)!.add(ws);
       sessionToGame.set(sessionId, gameCode);
       socketMeta.set(ws, { sessionId, gameCode });
 
       if (game.status === 'IN_PROGRESS') {
-        // Catch up late/reconnecting player with the active question
         const idx = currentQuestionIdx.get(gameCode);
         const questions = gameQuestions.get(gameCode);
         if (idx !== undefined && questions && idx < questions.length) {
@@ -127,7 +149,7 @@ function handle(ws: WebSocket, raw: string): void {
           sendTo(ws, {
             type: 'question:new',
             payload: {
-              question: { id: q.id, type: q.type, prompt: q.prompt, options: q.options, spotifyUri: q.spotifyUri },
+              question: { id: q.id, type: q.type, prompt: q.prompt, options: q.options, spotifyUri: q.spotifyUri, previewUrl: q.previewUrl },
               questionIndex: idx,
               totalQuestions: questions.length,
               timeLimit: QUESTION_TIME_LIMIT,
@@ -142,7 +164,6 @@ function handle(ws: WebSocket, raw: string): void {
         return;
       }
 
-      // Add to DB if not already a player
       db.prepare(`
         INSERT OR IGNORE INTO game_players (id, game_id, user_id, joined_at)
         VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -195,7 +216,6 @@ function handle(ws: WebSocket, raw: string): void {
         return;
       }
 
-      // Collect music data for all players
       const gamePlayers = db.prepare(`
         SELECT u.id AS userId, u.display_name AS displayName
         FROM game_players gp
@@ -236,7 +256,6 @@ function handle(ws: WebSocket, raw: string): void {
         return;
       }
 
-      // Persist questions
       const insertQ = db.prepare(
         'INSERT INTO questions (id, game_id, type, order_index, payload, genre) VALUES (?, ?, ?, ?, ?, ?)'
       );
@@ -251,8 +270,6 @@ function handle(ws: WebSocket, raw: string): void {
       questionAnswers.set(meta.gameCode, new Map());
 
       broadcast(meta.gameCode, { type: 'game:started', payload: {} });
-
-      // Brief countdown before first question
       setTimeout(() => broadcastQuestion(meta.gameCode, 0, questions), 2000);
       break;
     }
@@ -296,12 +313,11 @@ function handle(ws: WebSocket, raw: string): void {
       if (!gameMap.has(q.id)) gameMap.set(q.id, new Map());
       const qMap = gameMap.get(q.id)!;
 
-      if (qMap.has(session.userId)) return; // already answered
+      if (qMap.has(session.userId)) return;
 
       qMap.set(session.userId, answerId);
       sendTo(ws, { type: 'answer:ack', payload: { correct: answerId === q.correctAnswerId } });
 
-      // Advance early if everyone in the room has answered
       const room = rooms.get(meta.gameCode);
       if (room && qMap.size >= room.size) {
         const timer = questionTimers.get(meta.gameCode);
