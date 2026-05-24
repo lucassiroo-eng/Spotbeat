@@ -40,8 +40,9 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 setupWebSocket(wss);
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
+const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';
 
 initDb();
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[api] running on http://127.0.0.1:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`[api] running on http://${HOST}:${PORT}`);
 });
