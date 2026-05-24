@@ -1,12 +1,10 @@
-import { QuestionGenInput, GeneratedQuestion, QuestionGenerator } from './types';
-import { randomUUID } from 'crypto';
+import { QuestionGenInput, GeneratedQuestion } from './types';
+import { guessTheOwnerGenerator } from './generators/guessTheOwner';
+import { topArtistMatchGenerator } from './generators/topArtistMatch';
 
 export * from './types';
 
-const generators: QuestionGenerator[] = [
-  // Phase 3: register generators here
-  // e.g. guessTheOwnerGenerator, topArtistMatchGenerator, ...
-];
+const generators = [guessTheOwnerGenerator, topArtistMatchGenerator];
 
 export function generateQuestions(input: QuestionGenInput): GeneratedQuestion[] {
   const { config } = input;
@@ -21,9 +19,7 @@ export function generateQuestions(input: QuestionGenInput): GeneratedQuestion[] 
   for (let i = 0; i < config.questionCount; i++) {
     const generator = eligible[i % eligible.length];
     const question = generator.generate(input);
-    if (question) {
-      questions.push({ ...question, id: randomUUID() });
-    }
+    if (question) questions.push(question);
   }
 
   return questions;

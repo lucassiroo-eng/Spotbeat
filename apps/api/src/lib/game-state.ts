@@ -1,4 +1,5 @@
 import { WebSocket } from 'ws';
+import { GeneratedQuestion } from '@spotbeat/question-engine';
 
 // gameCode → set of connected sockets
 export const rooms = new Map<string, Set<WebSocket>>();
@@ -11,6 +12,18 @@ export const sessionToGame = new Map<string, string>();
 
 // socket → { sessionId, gameCode } (for disconnect cleanup)
 export const socketMeta = new Map<WebSocket, { sessionId: string; gameCode: string }>();
+
+// gameCode → ordered questions for the active game
+export const gameQuestions = new Map<string, GeneratedQuestion[]>();
+
+// gameCode → index of the currently active question
+export const currentQuestionIdx = new Map<string, number>();
+
+// gameCode → questionId → userId → answerId
+export const questionAnswers = new Map<string, Map<string, Map<string, string>>>();
+
+// gameCode → active question timer handle
+export const questionTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 export function broadcast(gameCode: string, message: object): void {
   const room = rooms.get(gameCode);
