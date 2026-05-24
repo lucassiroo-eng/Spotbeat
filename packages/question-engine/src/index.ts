@@ -1,10 +1,19 @@
 import { QuestionGenInput, GeneratedQuestion } from './types';
 import { guessTheOwnerGenerator } from './generators/guessTheOwner';
 import { topArtistMatchGenerator } from './generators/topArtistMatch';
+import { mostLikelyToGenerator } from './generators/mostLikelyTo';
+import { oddOneOutGenerator } from './generators/oddOneOut';
+import { genreGuessGenerator } from './generators/genreGuess';
 
 export * from './types';
 
-const generators = [guessTheOwnerGenerator, topArtistMatchGenerator];
+const generators = [
+  guessTheOwnerGenerator,
+  topArtistMatchGenerator,
+  mostLikelyToGenerator,
+  oddOneOutGenerator,
+  genreGuessGenerator,
+];
 
 export function generateQuestions(input: QuestionGenInput): GeneratedQuestion[] {
   const { config } = input;

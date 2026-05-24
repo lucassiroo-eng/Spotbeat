@@ -35,6 +35,21 @@ export default function Callback() {
 
     const gameCode = sessionStorage.getItem('game_code');
 
+    async function createGameWithRetry(sid: string, retries = 5): Promise<{ code: string }> {
+      for (let i = 0; i < retries; i++) {
+        try {
+          return await apiPost<{ code: string }>('/api/games', {}, sid);
+        } catch (err) {
+          if (i < retries - 1 && (err as Error).message.includes('sync_pending')) {
+            await new Promise(r => setTimeout(r, 1200));
+          } else {
+            throw err;
+          }
+        }
+      }
+      throw new Error('sync_pending: timed out');
+    }
+
     apiPost<{ ok: boolean; userId: string; displayName: string }>(
       '/api/auth/spotify/callback',
       { code, code_verifier: verifier, session_id: sessionId, redirect_uri: `${window.location.origin}/callback` },
@@ -46,7 +61,7 @@ export default function Callback() {
         if (gameCode) {
           navigate(`/lobby/${gameCode}`);
         } else {
-          const { code: newCode } = await apiPost<{ code: string }>('/api/games', {}, sessionId);
+          const { code: newCode } = await createGameWithRetry(sessionId);
           navigate(`/lobby/${newCode}`);
         }
       })

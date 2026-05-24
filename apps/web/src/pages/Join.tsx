@@ -6,6 +6,7 @@ const SCOPES = [
   'streaming',
   'user-read-private',
   'user-top-read',
+  'user-read-recently-played',
   'user-read-playback-state',
   'user-modify-playback-state',
 ].join(' ');

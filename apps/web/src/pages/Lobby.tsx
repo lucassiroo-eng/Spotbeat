@@ -86,6 +86,11 @@ export default function Lobby() {
         setPlayers(prev => prev.map(p => p.userId === userId ? { ...p, ready: true } : p));
         break;
       }
+      case 'player:left': {
+        const { userId } = msg.payload as { userId: string };
+        setPlayers(prev => prev.filter(p => p.userId !== userId));
+        break;
+      }
       case 'config:updated': {
         setLobby(prev => prev ? { ...prev, config: msg.payload as LobbyState['config'] } : prev);
         break;
@@ -200,11 +205,36 @@ export default function Lobby() {
           </div>
         )}
 
+        {/* Invite link */}
+        <div className="card mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold">Invite friends</p>
+              <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--sp-muted)' }}>
+                {typeof window !== 'undefined' ? `${window.location.origin}/join/${code}` : ''}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/join/${code}`).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                });
+              }}
+              className="btn-outline text-xs py-1.5 px-4 flex-shrink-0 ml-3"
+            >
+              {copied ? '✓ Copied' : 'Copy link'}
+            </button>
+          </div>
+        </div>
+
         {/* Config + Start (host only) */}
         {isHost && (
           <div className="card mb-4">
             <h2 className="font-bold mb-4">Game Settings</h2>
-            <div className="mb-4">
+
+            {/* Question count */}
+            <div className="mb-5">
               <div className="flex justify-between text-sm mb-2">
                 <span style={{ color: 'var(--sp-muted)' }}>Questions</span>
                 <span className="font-bold" style={{ color: 'var(--sp-green)' }}>{lobby.config.questionCount}</span>
@@ -217,6 +247,48 @@ export default function Lobby() {
               />
               <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--sp-muted)' }}>
                 <span>5</span><span>20</span>
+              </div>
+            </div>
+
+            {/* Question type toggles */}
+            <div className="mb-5">
+              <p className="text-sm font-semibold mb-3" style={{ color: 'var(--sp-muted)' }}>Question Types</p>
+              <div className="space-y-2">
+                {[
+                  { id: 'GUESS_THE_OWNER', label: '🎵 Guess the Owner', desc: 'Whose top track is this?' },
+                  { id: 'TOP_ARTIST_MATCH', label: '🎤 Artist Match', desc: "Who's top artist is this?" },
+                  { id: 'MOST_LIKELY_TO', label: '🏆 Most Likely To', desc: 'Who listens to this genre most?' },
+                  { id: 'ODD_ONE_OUT', label: '🔍 Odd One Out', desc: "Which artist doesn't belong?" },
+                  { id: 'GENRE_GUESS', label: '🎼 Genre Guess', desc: 'What genre is this artist?' },
+                ].map(qt => {
+                  const enabled = lobby.config.enabledTypes.includes(qt.id);
+                  return (
+                    <label key={qt.id} className="flex items-center gap-3 cursor-pointer group">
+                      <button
+                        role="checkbox"
+                        aria-checked={enabled}
+                        onClick={() => {
+                          const current = lobby.config.enabledTypes;
+                          const updated = enabled
+                            ? current.filter(t => t !== qt.id)
+                            : [...current, qt.id];
+                          if (updated.length > 0) send('config:update', { enabledTypes: updated });
+                        }}
+                        className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center border-2 transition-all"
+                        style={{
+                          background: enabled ? 'var(--sp-green)' : 'transparent',
+                          borderColor: enabled ? 'var(--sp-green)' : 'var(--sp-border)',
+                        }}
+                      >
+                        {enabled && <span className="text-black text-xs font-bold">✓</span>}
+                      </button>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{qt.label}</p>
+                        <p className="text-xs" style={{ color: 'var(--sp-muted)' }}>{qt.desc}</p>
+                      </div>
+                    </label>
+                  );
+                })}
               </div>
             </div>
 

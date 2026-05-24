@@ -3,13 +3,17 @@ import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { requireSession } from '../../lib/sessions';
 import { db } from '../../lib/db';
+import {
+  gameQuestions, currentQuestionIdx, questionAnswers,
+} from '../../lib/game-state';
+import { tryEarlyAdvance } from '../../lib/game-loop';
 
 const router = Router();
 
 const DEFAULT_CONFIG = {
   questionCount: 10,
   genres: 'all',
-  enabledTypes: ['GUESS_THE_OWNER', 'TOP_ARTIST_MATCH'],
+  enabledTypes: ['GUESS_THE_OWNER', 'TOP_ARTIST_MATCH', 'MOST_LIKELY_TO', 'ODD_ONE_OUT', 'GENRE_GUESS'],
 };
 
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -36,7 +40,6 @@ router.post('/', (req, res) => {
   }
 
   let code = generateCode();
-  // Ensure uniqueness (extremely unlikely collision but correct)
   while (db.prepare('SELECT 1 FROM games WHERE code = ?').get(code)) {
     code = generateCode();
   }
@@ -55,7 +58,7 @@ router.post('/', (req, res) => {
   res.status(201).json({ gameId, code });
 });
 
-// GET /api/games/:code — lobby state
+// GET /api/games/:code — lobby/game state
 router.get('/:code', (req, res) => {
   try {
     requireSession(getSessionId(req));
@@ -70,9 +73,7 @@ router.get('/:code', (req, res) => {
 
   const players = db.prepare(`
     SELECT u.id AS userId, u.display_name AS displayName, gp.score
-    FROM game_players gp
-    JOIN users u ON u.id = gp.user_id
-    WHERE gp.game_id = ?
+    FROM game_players gp JOIN users u ON u.id = gp.user_id WHERE gp.game_id = ?
   `).all(game.id);
 
   res.json({
@@ -110,16 +111,45 @@ router.patch('/:code/config', (req, res) => {
   const parse = configSchema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ error: 'invalid_config', details: parse.error.flatten() });
 
-  const current = JSON.parse(game.config);
-  const updated = { ...current, ...parse.data };
+  const updated = { ...JSON.parse(game.config), ...parse.data };
   db.prepare('UPDATE games SET config = ? WHERE id = ?').run(JSON.stringify(updated), game.id);
-
   res.json({ config: updated });
 });
 
-// POST /api/games/:code/answer — Phase 4
-router.post('/:code/answer', (_req, res) => {
-  res.status(501).json({ error: 'not_implemented' });
+// POST /api/games/:code/answer — REST fallback for clients that lost their WS connection
+router.post('/:code/answer', (req, res) => {
+  let session: ReturnType<typeof requireSession>;
+  try {
+    session = requireSession(getSessionId(req));
+  } catch {
+    return res.status(401).json({ error: 'not_authenticated' });
+  }
+
+  if (!session.userId) return res.status(401).json({ error: 'not_authenticated' });
+
+  const { answerId } = req.body as { answerId?: string };
+  if (!answerId) return res.status(400).json({ error: 'answerId_required' });
+
+  const gameCode = req.params.code;
+  const idx = currentQuestionIdx.get(gameCode);
+  if (idx === undefined) return res.status(409).json({ error: 'no_active_question' });
+
+  const questions = gameQuestions.get(gameCode);
+  if (!questions || idx >= questions.length) return res.status(409).json({ error: 'no_active_question' });
+
+  const q = questions[idx];
+
+  if (!questionAnswers.has(gameCode)) questionAnswers.set(gameCode, new Map());
+  const gameMap = questionAnswers.get(gameCode)!;
+  if (!gameMap.has(q.id)) gameMap.set(q.id, new Map());
+  const qMap = gameMap.get(q.id)!;
+
+  if (qMap.has(session.userId)) return res.status(409).json({ error: 'already_answered' });
+
+  qMap.set(session.userId, answerId);
+  tryEarlyAdvance(gameCode);
+
+  res.json({ correct: answerId === q.correctAnswerId });
 });
 
 export default router;

@@ -68,6 +68,9 @@ export const spotifyClient = {
   getTopTracks: (token: string, limit = 50, timeRange = 'medium_term') =>
     spotifyFetch<{ items: SpotifyTrack[] }>(token, `/me/top/tracks?limit=${limit}&time_range=${timeRange}`),
 
+  getRecentlyPlayed: (token: string, limit = 50) =>
+    spotifyFetch<{ items: { track: SpotifyTrack }[] }>(token, `/me/player/recently-played?limit=${limit}`),
+
   getDevices: (token: string) =>
     spotifyFetch<{ devices: SpotifyDevice[] }>(token, '/me/player/devices'),
 };

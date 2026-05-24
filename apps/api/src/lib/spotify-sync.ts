@@ -6,6 +6,7 @@ import { broadcast, sessionToGame } from './game-state';
 interface CachedMusicData {
   topArtists: SpotifyArtist[];
   topTracks: SpotifyTrack[];
+  recentlyPlayed: SpotifyTrack[];
   cachedAt: number;
 }
 
@@ -21,18 +22,32 @@ export async function syncUserData(sessionId: string): Promise<void> {
 
   const token = await refreshTokenIfNeeded(sessionId);
 
-  const [artists, tracks] = await Promise.all([
+  const [artists, tracks, recent] = await Promise.all([
     spotifyClient.getTopArtists(token),
     spotifyClient.getTopTracks(token),
+    spotifyClient.getRecentlyPlayed(token).catch(() => ({ items: [] as { track: SpotifyTrack }[] })),
   ]);
+
+  // Deduplicate recently played by track id
+  const seenIds = new Set<string>();
+  const recentlyPlayed: SpotifyTrack[] = [];
+  for (const { track } of recent.items) {
+    if (!seenIds.has(track.id)) {
+      seenIds.add(track.id);
+      recentlyPlayed.push(track);
+    }
+  }
 
   userDataCache.set(session.userId, {
     topArtists: artists.items,
     topTracks: tracks.items,
+    recentlyPlayed,
     cachedAt: Date.now(),
   });
 
-  console.log(`[sync] ${session.displayName} ready (${artists.items.length} artists, ${tracks.items.length} tracks)`);
+  console.log(
+    `[sync] ${session.displayName} ready (${artists.items.length} artists, ${tracks.items.length} tracks, ${recentlyPlayed.length} recent)`
+  );
 
   const gameCode = sessionToGame.get(sessionId);
   if (gameCode) {
