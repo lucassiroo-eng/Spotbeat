@@ -78,7 +78,7 @@ export default function Join() {
         )}
 
         {/* CTA */}
-        <button onClick={handleConnect} disabled={loading || !pkceRef.current} className="btn-green w-full text-base py-4">
+        <button onClick={handleConnect} disabled={loading} className="btn-green w-full text-base py-4">
           {loading
             ? <><span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Redirecting...</>
             : <>
