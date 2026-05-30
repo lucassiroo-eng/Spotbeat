@@ -19,12 +19,12 @@ export const mostLikelyToGenerator: QuestionGenerator = {
 
   canGenerate(input: QuestionGenInput): boolean {
     if (input.players.length < 2) return false;
-    const playersWithGenres = input.players.filter(p => p.topArtists.some(a => a.genres.length > 0));
+    const playersWithGenres = input.players.filter(p => p.topArtists.some(a => (a.genres ?? []).length > 0));
     if (playersWithGenres.length < 2) return false;
     // Need at least one genre shared by 2+ players (makes it a real competition)
     const genreCounts = new Map<string, number>();
     for (const p of playersWithGenres) {
-      for (const g of new Set(p.topArtists.flatMap(a => a.genres))) {
+      for (const g of new Set(p.topArtists.flatMap(a => a.genres ?? []))) {
         genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
       }
     }
@@ -35,7 +35,7 @@ export const mostLikelyToGenerator: QuestionGenerator = {
     // Build genre → count of matching artists per player
     const genreCounts = new Map<string, number>();
     for (const p of input.players) {
-      for (const g of new Set(p.topArtists.flatMap(a => a.genres))) {
+      for (const g of new Set(p.topArtists.flatMap(a => a.genres ?? []))) {
         genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1);
       }
     }
@@ -49,7 +49,7 @@ export const mostLikelyToGenerator: QuestionGenerator = {
 
     const playerScores = input.players.map(p => ({
       player: p,
-      count: p.topArtists.filter(a => a.genres.includes(genre)).length,
+      count: p.topArtists.filter(a => (a.genres ?? []).includes(genre)).length,
     }));
     const maxCount = Math.max(...playerScores.map(s => s.count));
     if (maxCount === 0) return null;

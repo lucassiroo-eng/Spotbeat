@@ -138,16 +138,16 @@ function handleMessage(ws: WebSocket, msg: WsMessage): void {
         return {
           userId: p.userId,
           displayName: p.displayName,
-          topArtists: (data?.topArtists ?? []).map(a => ({ id: a.id, name: a.name, genres: a.genres })),
+          topArtists: (data?.topArtists ?? []).map(a => ({ id: a.id, name: a.name, genres: a.genres ?? [] })),
           topTracks: (data?.topTracks ?? []).map(t => ({
             id: t.id, name: t.name, uri: t.uri,
             duration_ms: t.duration_ms, preview_url: t.preview_url,
-            artists: t.artists.map(a => ({ id: a.id, name: a.name, genres: a.genres })),
+            artists: t.artists.map(a => ({ id: a.id, name: a.name, genres: a.genres ?? [] })),
           })),
           recentlyPlayed: (data?.recentlyPlayed ?? []).map(t => ({
             id: t.id, name: t.name, uri: t.uri,
             duration_ms: t.duration_ms, preview_url: t.preview_url,
-            artists: t.artists.map(a => ({ id: a.id, name: a.name, genres: a.genres })),
+            artists: t.artists.map(a => ({ id: a.id, name: a.name, genres: a.genres ?? [] })),
           })),
         };
       });
