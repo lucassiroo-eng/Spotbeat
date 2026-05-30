@@ -211,12 +211,12 @@ export default function Lobby() {
             <div>
               <p className="text-sm font-semibold">Invite friends</p>
               <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--sp-muted)' }}>
-                {typeof window !== 'undefined' ? `${window.location.origin}/join/${code}` : ''}
+                {typeof window !== 'undefined' ? `${window.location.origin}${import.meta.env.BASE_URL}join/${code}` : ''}
               </p>
             </div>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/join/${code}`).then(() => {
+                navigator.clipboard.writeText(`${window.location.origin}${import.meta.env.BASE_URL}join/${code}`).then(() => {
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 });
