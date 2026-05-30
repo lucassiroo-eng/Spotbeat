@@ -47,6 +47,7 @@ export default function Lobby() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevice, setSelectedDevice] = useState('');
+  const [audioMasterId, setAudioMasterId] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -59,6 +60,7 @@ export default function Lobby() {
       .then(data => {
         setLobby(data);
         setPlayers(data.players.map(p => ({ ...p, ready: false })));
+        setAudioMasterId((data.config as { audioMasterId?: string }).audioMasterId ?? data.hostUserId);
       })
       .catch(() => navigate(`/join/${code}`));
 
@@ -93,10 +95,14 @@ export default function Lobby() {
         break;
       }
       case 'config:updated': {
-        setLobby(prev => prev ? { ...prev, config: msg.payload as LobbyState['config'] } : prev);
+        const cfg = msg.payload as LobbyState['config'] & { audioMasterId?: string };
+        setLobby(prev => prev ? { ...prev, config: cfg } : prev);
+        if (cfg.audioMasterId) setAudioMasterId(cfg.audioMasterId);
         break;
       }
       case 'game:started': {
+        const p = msg.payload as { audioMasterId?: string };
+        if (p?.audioMasterId) sessionStorage.setItem('audio_master_id', p.audioMasterId);
         navigate(`/game/${code}`);
         break;
       }
@@ -297,6 +303,31 @@ export default function Lobby() {
                   );
                 })}
               </div>
+            </div>
+
+            {/* Audio master selector */}
+            <div className="mb-5">
+              <label className="text-sm font-semibold block mb-2" style={{ color: 'var(--sp-muted)' }}>
+                🔊 Sound Master
+              </label>
+              <select
+                value={audioMasterId}
+                onChange={e => {
+                  setAudioMasterId(e.target.value);
+                  send('config:update', { audioMasterId: e.target.value });
+                }}
+                className="input text-sm"
+                style={{ cursor: 'pointer' }}
+              >
+                {players.map(p => (
+                  <option key={p.userId} value={p.userId}>
+                    {p.displayName}{p.userId === myUserId ? ' (you)' : ''}{p.userId === lobby.hostUserId ? ' · host' : ''}
+                  </option>
+                ))}
+              </select>
+              <p style={{ color: 'var(--sp-muted)' }} className="text-xs mt-2">
+                This player's device plays music for everyone
+              </p>
             </div>
 
             <button

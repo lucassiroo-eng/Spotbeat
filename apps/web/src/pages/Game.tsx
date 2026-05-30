@@ -14,6 +14,8 @@ interface Question {
   spotifyUri?: string;
   previewUrl?: string;
   albumArt?: string;
+  trackName?: string;
+  artistName?: string;
 }
 
 interface PlayerScore { userId: string; displayName: string; score: number }
@@ -147,6 +149,8 @@ export default function Game() {
   const [scores, setScores] = useState<PlayerScore[]>([]);
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME);
   const [myAnswerCorrect, setMyAnswerCorrect] = useState<boolean | null>(null);
+  const audioMasterId = sessionStorage.getItem('audio_master_id');
+  const isAudioMaster = !audioMasterId || audioMasterId === myUserId;
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -169,7 +173,7 @@ export default function Game() {
     return token;
   }, [sessionId]);
 
-  const { play, stop, isPlaying } = useSpotifyPlayer(getToken);
+  const { play, stop, isPlaying, volume, setVolume } = useSpotifyPlayer(getToken);
 
   const handleMessage = useCallback((msg: { type: string; payload?: unknown }) => {
     switch (msg.type) {
@@ -186,8 +190,8 @@ export default function Game() {
         setPhase('question');
         startTimer(p.timeLimit);
 
-        if (p.question.previewUrl || p.question.spotifyUri) {
-          play(p.question.spotifyUri, p.question.previewUrl);
+        if (isAudioMaster && (p.question.previewUrl || p.question.spotifyUri || p.question.trackName)) {
+          play(p.question.spotifyUri, p.question.previewUrl, p.question.trackName, p.question.artistName);
         }
         break;
       }
@@ -332,6 +336,19 @@ export default function Game() {
             <span className="text-lg font-bold" style={{ color: myAnswerCorrect ? 'var(--sp-green)' : 'var(--sp-error)' }}>
               {myAnswerCorrect ? '✓ Correct!' : '✗ Wrong!'}
             </span>
+          </div>
+        )}
+
+        {/* Volume slider — audio master only */}
+        {isAudioMaster && (
+          <div className="flex items-center gap-3 mt-2">
+            <span style={{ color: 'var(--sp-muted)' }} className="text-sm">🔊</span>
+            <input
+              type="range" min={0} max={1} step={0.05}
+              value={volume}
+              onChange={e => setVolume(parseFloat(e.target.value))}
+              className="flex-1 accent-[#1DB954]"
+            />
           </div>
         )}
 
