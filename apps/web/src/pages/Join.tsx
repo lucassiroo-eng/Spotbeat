@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
 
@@ -14,6 +14,7 @@ const SCOPES = [
 export default function Join() {
   const { code } = useParams<{ code?: string }>();
   const [loading, setLoading] = useState(false);
+  const pkceRef = useRef<{ verifier: string; challenge: string; state: string } | null>(null);
 
   useEffect(() => {
     if (!sessionStorage.getItem('session_id')) {
@@ -21,14 +22,20 @@ export default function Join() {
     }
     if (code) sessionStorage.setItem('game_code', code);
     else sessionStorage.removeItem('game_code');
+
+    // Pre-compute PKCE so button click is fully synchronous (required by Safari)
+    const verifier = generateCodeVerifier();
+    const state = crypto.randomUUID();
+    generateCodeChallenge(verifier).then(challenge => {
+      pkceRef.current = { verifier, challenge, state };
+    });
   }, [code]);
 
-  async function handleConnect() {
+  function handleConnect() {
+    if (!pkceRef.current) return;
     setLoading(true);
-    const verifier = generateCodeVerifier();
-    const challenge = await generateCodeChallenge(verifier);
-    const state = crypto.randomUUID();
 
+    const { verifier, challenge, state } = pkceRef.current;
     sessionStorage.setItem('pkce_verifier', verifier);
     sessionStorage.setItem('pkce_state', state);
 
@@ -71,7 +78,7 @@ export default function Join() {
         )}
 
         {/* CTA */}
-        <button onClick={handleConnect} disabled={loading} className="btn-green w-full text-base py-4">
+        <button onClick={handleConnect} disabled={loading || !pkceRef.current} className="btn-green w-full text-base py-4">
           {loading
             ? <><span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Redirecting...</>
             : <>
