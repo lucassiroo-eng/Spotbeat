@@ -305,6 +305,24 @@ export default function Lobby() {
               </div>
             </div>
 
+            {/* Dev bot */}
+            <div className="mb-5 pt-4" style={{ borderTop: '1px solid var(--sp-border)' }}>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--sp-muted)' }}>
+                Testing
+              </p>
+              <button
+                onClick={() => send('bot:add')}
+                disabled={players.some(p => p.displayName === 'Spotbot 🤖')}
+                className="btn-outline w-full text-sm py-2.5"
+                style={{ opacity: players.some(p => p.displayName === 'Spotbot 🤖') ? 0.45 : 1 }}
+              >
+                {players.some(p => p.displayName === 'Spotbot 🤖') ? '🤖 Bot added' : '+ Add Bot (1-player test)'}
+              </button>
+              <p style={{ color: 'var(--sp-muted)' }} className="text-xs mt-1.5">
+                Fills a second slot with fake Spotify data so you can test solo
+              </p>
+            </div>
+
             {/* Audio master selector */}
             <div className="mb-5">
               <label className="text-sm font-semibold block mb-2" style={{ color: 'var(--sp-muted)' }}>

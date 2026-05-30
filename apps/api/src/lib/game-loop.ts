@@ -5,6 +5,7 @@ import {
   gameQuestions, currentQuestionIdx, questionAnswers, questionTimers, questionStartTimes,
   rooms, broadcast,
 } from './game-state';
+import { botGames } from './bot';
 
 export const QUESTION_TIME_LIMIT = 20_000;
 const REVEAL_PAUSE = 3_000;
@@ -24,6 +25,7 @@ export function broadcastQuestion(gameCode: string, idx: number, questions: Gene
       question: {
         id: q.id, type: q.type, prompt: q.prompt, options: q.options,
         spotifyUri: q.spotifyUri, previewUrl: q.previewUrl,
+        albumArt: q.albumArt, trackName: q.trackName, artistName: q.artistName,
       },
       questionIndex: idx,
       totalQuestions: questions.length,
@@ -33,6 +35,33 @@ export function broadcastQuestion(gameCode: string, idx: number, questions: Gene
 
   const timer = setTimeout(() => endQuestion(gameCode, idx), QUESTION_TIME_LIMIT);
   questionTimers.set(gameCode, timer);
+
+  scheduleBotAnswers(gameCode, q);
+}
+
+function scheduleBotAnswers(gameCode: string, q: GeneratedQuestion): void {
+  const bots = botGames.get(gameCode);
+  if (!bots || bots.size === 0) return;
+
+  for (const botId of bots) {
+    const delay = 1500 + Math.random() * 3000; // 1.5 – 4.5 s
+    setTimeout(() => {
+      const idx = currentQuestionIdx.get(gameCode);
+      if (idx === undefined) return;
+      const questions = gameQuestions.get(gameCode);
+      if (!questions || idx >= questions.length || questions[idx].id !== q.id) return;
+
+      if (!questionAnswers.has(gameCode)) questionAnswers.set(gameCode, new Map());
+      const gameMap = questionAnswers.get(gameCode)!;
+      if (!gameMap.has(q.id)) gameMap.set(q.id, new Map());
+      const qMap = gameMap.get(q.id)!;
+      if (qMap.has(botId)) return;
+
+      const pick = q.options[Math.floor(Math.random() * q.options.length)];
+      qMap.set(botId, pick.id);
+      // Don't call tryEarlyAdvance — bot answers shouldn't override the real players' pace
+    }, delay);
+  }
 }
 
 export function endQuestion(gameCode: string, idx: number): void {
@@ -90,6 +119,7 @@ export function endQuestion(gameCode: string, idx: number): void {
       questionAnswers.delete(gameCode);
       questionTimers.delete(gameCode);
       questionStartTimes.delete(gameCode);
+      botGames.delete(gameCode);
     }
   }, REVEAL_PAUSE);
 }

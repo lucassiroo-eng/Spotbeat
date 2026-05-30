@@ -55,6 +55,10 @@ export async function syncUserData(sessionId: string): Promise<void> {
   }
 }
 
+export function injectUserData(userId: string, data: CachedMusicData): void {
+  userDataCache.set(userId, data);
+}
+
 export function getUserData(userId: string): CachedMusicData | null {
   const cached = userDataCache.get(userId);
   if (!cached) return null;

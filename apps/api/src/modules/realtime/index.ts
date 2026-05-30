@@ -9,6 +9,7 @@ import {
   broadcast, sendTo,
 } from '../../lib/game-state';
 import { getUserData } from '../../lib/spotify-sync';
+import { addBotToGame } from '../../lib/bot';
 import { broadcastQuestion, endQuestion, tryEarlyAdvance, QUESTION_TIME_LIMIT } from '../../lib/game-loop';
 
 type WsMessage = { type: string; payload?: Record<string, unknown> };
@@ -185,8 +186,29 @@ function handleMessage(ws: WebSocket, msg: WsMessage): void {
       currentQuestionIdx.set(meta.gameCode, 0);
       questionAnswers.set(meta.gameCode, new Map());
 
-      broadcast(meta.gameCode, { type: 'game:started', payload: {} });
+      const audioMasterId = (gameConfig as { audioMasterId?: string }).audioMasterId ?? game.host_user_id;
+      broadcast(meta.gameCode, { type: 'game:started', payload: { audioMasterId } });
       setTimeout(() => broadcastQuestion(meta.gameCode, 0, questions), 2000);
+      break;
+    }
+
+    case 'bot:add': {
+      const meta = socketMeta.get(ws);
+      if (!meta) return;
+      const session = getSession(meta.sessionId);
+      if (!session?.userId) return;
+      const game = db.prepare('SELECT * FROM games WHERE code = ?').get(meta.gameCode) as {
+        id: string; host_user_id: string; status: string;
+      } | undefined;
+      if (!game || game.status !== 'LOBBY') {
+        sendTo(ws, { type: 'error', payload: { message: 'game_not_in_lobby' } });
+        return;
+      }
+      if (game.host_user_id !== session.userId) {
+        sendTo(ws, { type: 'error', payload: { message: 'not_host' } });
+        return;
+      }
+      addBotToGame(game.id, meta.gameCode);
       break;
     }
 
