@@ -21,6 +21,11 @@ function handle(ws: WebSocket, raw: string): void {
     sendTo(ws, { type: 'error', payload: { message: 'invalid_json' } });
     return;
   }
+  handleMessage(ws, msg);
+}
+
+function handleMessage(ws: WebSocket, msg: WsMessage): void {
+  try {
 
   switch (msg.type) {
     case 'lobby:join': {
@@ -226,6 +231,10 @@ function handle(ws: WebSocket, raw: string): void {
       tryEarlyAdvance(meta.gameCode);
       break;
     }
+  }
+  } catch (err) {
+    console.error('[ws] unhandled error in message handler', err);
+    sendTo(ws, { type: 'error', payload: { message: (err as Error).message ?? 'internal_error' } });
   }
 }
 
