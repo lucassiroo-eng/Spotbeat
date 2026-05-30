@@ -210,32 +210,29 @@ export default function Lobby() {
         <div className="card mb-4">
           <p className="text-sm font-semibold mb-3">Invite friends</p>
           <div className="flex items-center gap-5">
-            <div className="rounded-xl overflow-hidden flex-shrink-0" style={{ padding: 10, background: '#121212', border: '2px solid #1DB954' }}>
+          <div className="flex flex-col items-center gap-3">
+            <div className="rounded-2xl overflow-hidden" style={{ padding: 14, background: '#121212', border: '2px solid #1DB954' }}>
               <QRCodeSVG
                 value={`${window.location.origin}${import.meta.env.BASE_URL}join/${code}`}
-                size={110}
+                size={180}
                 bgColor="#121212"
                 fgColor="#1DB954"
                 level="M"
               />
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs mb-2" style={{ color: 'var(--sp-muted)' }}>Scan to join, or share the link:</p>
-              <p className="text-xs font-mono break-all mb-3" style={{ color: 'var(--sp-green)' }}>
-                {`${window.location.origin}${import.meta.env.BASE_URL}join/${code}`}
-              </p>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}${import.meta.env.BASE_URL}join/${code}`).then(() => {
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  });
-                }}
-                className="btn-outline text-xs py-1.5 px-4"
-              >
-                {copied ? '✓ Copied' : 'Copy link'}
-              </button>
-            </div>
+            <p className="text-xs text-center" style={{ color: 'var(--sp-muted)' }}>Scan to join</p>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}${import.meta.env.BASE_URL}join/${code}`).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                });
+              }}
+              className="btn-outline text-xs py-1.5 px-5"
+            >
+              {copied ? '✓ Copied' : 'Copy link'}
+            </button>
+          </div>
           </div>
         </div>
 
