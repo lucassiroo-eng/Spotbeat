@@ -26,14 +26,16 @@ export const guessTheOwnerGenerator: QuestionGenerator = {
 
     const options = shuffle(input.players.map(p => ({ id: p.userId, label: p.displayName })));
 
+    const artistName = track.artists[0]?.name ?? 'Unknown';
     return {
       id: randomUUID(),
       type: 'GUESS_THE_OWNER',
-      prompt: `Whose top track is "${track.name}"?`,
+      prompt: `"${track.name}" by ${artistName} is one of whose most-listened tracks?`,
       options,
       correctAnswerId: owner.userId,
       spotifyUri: track.uri,
       previewUrl: track.preview_url ?? undefined,
+      albumArt: track.albumArt,
     };
   },
 };

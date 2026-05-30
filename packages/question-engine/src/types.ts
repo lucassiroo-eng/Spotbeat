@@ -17,6 +17,7 @@ export interface Track {
   duration_ms: number;
   preview_url: string | null;
   artists: Artist[];
+  albumArt?: string;
 }
 
 export interface PlayerMusicData {
@@ -50,6 +51,7 @@ export interface GeneratedQuestion {
   correctAnswerId: string;
   spotifyUri?: string;
   previewUrl?: string;
+  albumArt?: string;
   duration?: number;
   genre?: string;
 }

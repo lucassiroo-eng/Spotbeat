@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { apiGet } from '../utils/api';
@@ -205,26 +206,36 @@ export default function Lobby() {
           </div>
         )}
 
-        {/* Invite link */}
+        {/* QR invite */}
         <div className="card mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold">Invite friends</p>
-              <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--sp-muted)' }}>
-                {typeof window !== 'undefined' ? `${window.location.origin}${import.meta.env.BASE_URL}join/${code}` : ''}
-              </p>
+          <p className="text-sm font-semibold mb-3">Invite friends</p>
+          <div className="flex items-center gap-5">
+            <div className="rounded-xl overflow-hidden flex-shrink-0" style={{ padding: 10, background: '#121212', border: '2px solid #1DB954' }}>
+              <QRCodeSVG
+                value={`${window.location.origin}${import.meta.env.BASE_URL}join/${code}`}
+                size={110}
+                bgColor="#121212"
+                fgColor="#1DB954"
+                level="M"
+              />
             </div>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}${import.meta.env.BASE_URL}join/${code}`).then(() => {
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
-                });
-              }}
-              className="btn-outline text-xs py-1.5 px-4 flex-shrink-0 ml-3"
-            >
-              {copied ? '✓ Copied' : 'Copy link'}
-            </button>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs mb-2" style={{ color: 'var(--sp-muted)' }}>Scan to join, or share the link:</p>
+              <p className="text-xs font-mono break-all mb-3" style={{ color: 'var(--sp-green)' }}>
+                {`${window.location.origin}${import.meta.env.BASE_URL}join/${code}`}
+              </p>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}${import.meta.env.BASE_URL}join/${code}`).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  });
+                }}
+                className="btn-outline text-xs py-1.5 px-4"
+              >
+                {copied ? '✓ Copied' : 'Copy link'}
+              </button>
+            </div>
           </div>
         </div>
 

@@ -30,11 +30,12 @@ export const recentTrackGenerator: QuestionGenerator = {
     return {
       id: randomUUID(),
       type: 'RECENT_TRACK',
-      prompt: `Who recently listened to "${track.name}" by ${artistName}?`,
+      prompt: `Who has "${track.name}" by ${artistName} in their recently played?`,
       options,
       correctAnswerId: owner.userId,
       spotifyUri: track.uri,
       previewUrl: track.preview_url ?? undefined,
+      albumArt: track.albumArt,
     };
   },
 };

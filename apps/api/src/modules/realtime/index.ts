@@ -63,7 +63,7 @@ function handleMessage(ws: WebSocket, msg: WsMessage): void {
           sendTo(ws, {
             type: 'question:new',
             payload: {
-              question: { id: q.id, type: q.type, prompt: q.prompt, options: q.options, spotifyUri: q.spotifyUri, previewUrl: q.previewUrl },
+              question: { id: q.id, type: q.type, prompt: q.prompt, options: q.options, spotifyUri: q.spotifyUri, previewUrl: q.previewUrl, albumArt: q.albumArt },
               questionIndex: idx,
               totalQuestions: questions.length,
               timeLimit: QUESTION_TIME_LIMIT,
@@ -142,11 +142,13 @@ function handleMessage(ws: WebSocket, msg: WsMessage): void {
           topTracks: (data?.topTracks ?? []).map(t => ({
             id: t.id, name: t.name, uri: t.uri,
             duration_ms: t.duration_ms, preview_url: t.preview_url,
+            albumArt: t.album?.images?.[0]?.url,
             artists: t.artists.map(a => ({ id: a.id, name: a.name, genres: a.genres ?? [] })),
           })),
           recentlyPlayed: (data?.recentlyPlayed ?? []).map(t => ({
             id: t.id, name: t.name, uri: t.uri,
             duration_ms: t.duration_ms, preview_url: t.preview_url,
+            albumArt: t.album?.images?.[0]?.url,
             artists: t.artists.map(a => ({ id: a.id, name: a.name, genres: a.genres ?? [] })),
           })),
         };

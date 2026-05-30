@@ -48,6 +48,7 @@ export interface SpotifyTrack {
   duration_ms: number;
   preview_url: string | null;
   artists: SpotifyArtist[];
+  album?: { name: string; images: { url: string }[] };
 }
 
 export interface SpotifyDevice {

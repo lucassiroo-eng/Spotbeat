@@ -62,7 +62,7 @@ export const mostLikelyToGenerator: QuestionGenerator = {
     return {
       id: randomUUID(),
       type: 'MOST_LIKELY_TO',
-      prompt: `Who listens to the most ${capitalize(genre)} music?`,
+      prompt: `Who has the most ${capitalize(genre)} artists among their top listened?`,
       options,
       correctAnswerId: winner.userId,
     };

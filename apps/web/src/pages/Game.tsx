@@ -13,6 +13,7 @@ interface Question {
   options: QuestionOption[];
   spotifyUri?: string;
   previewUrl?: string;
+  albumArt?: string;
 }
 
 interface PlayerScore { userId: string; displayName: string; score: number }
@@ -20,6 +21,13 @@ interface PlayerScore { userId: string; displayName: string; score: number }
 type Phase = 'waiting' | 'question' | 'reveal' | 'finished';
 
 const TOTAL_TIME = 20;
+
+const QUESTION_LABELS: Record<string, string> = {
+  GUESS_THE_OWNER: '🎵 Whose Track?',
+  TOP_ARTIST_MATCH: '🎤 Top Artist',
+  MOST_LIKELY_TO: '🏆 Most Likely',
+  RECENT_TRACK: '🕐 Recently Played',
+};
 
 function TimerRing({ timeLeft }: { timeLeft: number }) {
   const r = 20;
@@ -118,7 +126,7 @@ function Podium({ scores, myUserId }: { scores: PlayerScore[]; myUserId: string 
           </div>
         )}
 
-        <a href="/join" className="btn-green w-full text-center block py-4">Play Again</a>
+        <a href={`${import.meta.env.BASE_URL}join`} className="btn-green w-full text-center block py-4">Play Again</a>
       </div>
     </div>
   );
@@ -178,8 +186,7 @@ export default function Game() {
         setPhase('question');
         startTimer(p.timeLimit);
 
-        // Playback for GUESS_THE_OWNER
-        if (p.question.type === 'GUESS_THE_OWNER') {
+        if (p.question.previewUrl || p.question.spotifyUri) {
           play(p.question.spotifyUri, p.question.previewUrl);
         }
         break;
@@ -258,22 +265,44 @@ export default function Game() {
         </div>
 
         {/* Question card */}
-        <div className="card mb-5 flex-1 flex flex-col justify-between" style={{ minHeight: 180 }}>
-          <div>
-            <span className="text-xs uppercase tracking-widest font-semibold px-2 py-1 rounded"
-              style={{ background: 'rgba(29,185,84,0.15)', color: 'var(--sp-green)' }}>
-              {question.type === 'GUESS_THE_OWNER' ? '🎵 Guess the Owner' : '🎤 Artist Match'}
-            </span>
-            <h2 className="text-xl font-bold mt-4 leading-snug">{question.prompt}</h2>
-          </div>
-
-          {/* Audio indicator */}
-          {isPlaying && (
-            <div className="flex items-center gap-2 mt-4">
-              <AudioWave />
-              <span style={{ color: 'var(--sp-muted)' }} className="text-xs">Now playing</span>
+        <div className="card mb-5" style={{ minHeight: 160 }}>
+          {/* Album art + info row */}
+          {question.albumArt ? (
+            <div className="flex gap-4 mb-4">
+              <img
+                src={question.albumArt}
+                alt="cover"
+                className="w-20 h-20 rounded-lg flex-shrink-0 object-cover"
+                style={{ border: '1px solid var(--sp-border)' }}
+              />
+              <div className="flex flex-col justify-between min-w-0 flex-1">
+                <span className="text-xs uppercase tracking-widest font-semibold px-2 py-1 rounded self-start"
+                  style={{ background: 'rgba(29,185,84,0.15)', color: 'var(--sp-green)' }}>
+                  {QUESTION_LABELS[question.type] ?? question.type}
+                </span>
+                {isPlaying && (
+                  <div className="flex items-center gap-2">
+                    <AudioWave />
+                    <span style={{ color: 'var(--sp-muted)' }} className="text-xs">Now playing</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs uppercase tracking-widest font-semibold px-2 py-1 rounded"
+                style={{ background: 'rgba(29,185,84,0.15)', color: 'var(--sp-green)' }}>
+                {QUESTION_LABELS[question.type] ?? question.type}
+              </span>
+              {isPlaying && (
+                <div className="flex items-center gap-2">
+                  <AudioWave />
+                  <span style={{ color: 'var(--sp-muted)' }} className="text-xs">Playing</span>
+                </div>
+              )}
             </div>
           )}
+          <h2 className="text-lg font-bold leading-snug">{question.prompt}</h2>
         </div>
 
         {/* Answer grid */}
