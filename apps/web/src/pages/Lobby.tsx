@@ -258,8 +258,7 @@ export default function Lobby() {
                   { id: 'GUESS_THE_OWNER', label: '🎵 Guess the Owner', desc: 'Whose top track is this?' },
                   { id: 'TOP_ARTIST_MATCH', label: '🎤 Artist Match', desc: "Who's top artist is this?" },
                   { id: 'MOST_LIKELY_TO', label: '🏆 Most Likely To', desc: 'Who listens to this genre most?' },
-                  { id: 'ODD_ONE_OUT', label: '🔍 Odd One Out', desc: "Which artist doesn't belong?" },
-                  { id: 'GENRE_GUESS', label: '🎼 Genre Guess', desc: 'What genre is this artist?' },
+                  { id: 'RECENT_TRACK', label: '🕐 Recent Track', desc: 'Who recently listened to this song?' },
                 ].map(qt => {
                   const enabled = lobby.config.enabledTypes.includes(qt.id);
                   return (

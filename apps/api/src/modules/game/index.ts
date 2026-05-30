@@ -13,7 +13,7 @@ const router = Router();
 const DEFAULT_CONFIG = {
   questionCount: 10,
   genres: 'all',
-  enabledTypes: ['GUESS_THE_OWNER', 'TOP_ARTIST_MATCH', 'MOST_LIKELY_TO', 'ODD_ONE_OUT', 'GENRE_GUESS'],
+  enabledTypes: ['GUESS_THE_OWNER', 'TOP_ARTIST_MATCH', 'MOST_LIKELY_TO', 'RECENT_TRACK'],
 };
 
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

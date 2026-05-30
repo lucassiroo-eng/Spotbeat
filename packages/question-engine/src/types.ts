@@ -2,8 +2,7 @@ export type QuestionType =
   | 'GUESS_THE_OWNER'
   | 'TOP_ARTIST_MATCH'
   | 'MOST_LIKELY_TO'
-  | 'ODD_ONE_OUT'
-  | 'GENRE_GUESS';
+  | 'RECENT_TRACK';
 
 export interface Artist {
   id: string;
