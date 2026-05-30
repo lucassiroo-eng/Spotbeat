@@ -25,10 +25,10 @@ type Phase = 'waiting' | 'question' | 'reveal' | 'finished';
 const TOTAL_TIME = 20;
 
 const QUESTION_LABELS: Record<string, string> = {
-  GUESS_THE_OWNER: '🎵 Whose Track?',
-  TOP_ARTIST_MATCH: '🎤 Top Artist',
-  MOST_LIKELY_TO: '🏆 Most Likely',
-  RECENT_TRACK: '🕐 Recently Played',
+  GUESS_THE_OWNER: 'Whose Track?',
+  TOP_ARTIST_MATCH: 'Top Artist',
+  MOST_LIKELY_TO: 'Most Likely',
+  RECENT_TRACK: 'Recently Played',
 };
 
 function TimerRing({ timeLeft }: { timeLeft: number }) {
@@ -78,9 +78,7 @@ function Podium({ scores, myUserId }: { scores: PlayerScore[]; myUserId: string 
         <h1 className="text-3xl font-bold text-center mb-2">Game Over!</h1>
         <p style={{ color: 'var(--sp-muted)' }} className="text-center text-sm mb-8">Final standings</p>
 
-        {/* Top 3 podium */}
         <div className="flex items-end justify-center gap-4 mb-8">
-          {/* 2nd */}
           {top3[1] && (
             <div className="text-center flex-1">
               <div className="text-2xl mb-1">🥈</div>
@@ -90,7 +88,6 @@ function Podium({ scores, myUserId }: { scores: PlayerScore[]; myUserId: string 
               </div>
             </div>
           )}
-          {/* 1st */}
           {top3[0] && (
             <div className="text-center flex-1">
               <div className="text-3xl mb-1">🥇</div>
@@ -100,7 +97,6 @@ function Podium({ scores, myUserId }: { scores: PlayerScore[]; myUserId: string 
               </div>
             </div>
           )}
-          {/* 3rd */}
           {top3[2] && (
             <div className="text-center flex-1">
               <div className="text-2xl mb-1">🥉</div>
@@ -112,7 +108,6 @@ function Podium({ scores, myUserId }: { scores: PlayerScore[]; myUserId: string 
           )}
         </div>
 
-        {/* Rest */}
         {rest.length > 0 && (
           <div className="card mb-6">
             {rest.map((s, i) => (
@@ -139,6 +134,8 @@ export default function Game() {
   const navigate = useNavigate();
   const myUserId = sessionStorage.getItem('spotify_user_id') ?? '';
   const sessionId = sessionStorage.getItem('session_id') ?? '';
+  const audioMasterId = sessionStorage.getItem('audio_master_id');
+  const isAudioMaster = !audioMasterId || audioMasterId === myUserId;
 
   const [phase, setPhase] = useState<Phase>('waiting');
   const [question, setQuestion] = useState<Question | null>(null);
@@ -149,8 +146,6 @@ export default function Game() {
   const [scores, setScores] = useState<PlayerScore[]>([]);
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME);
   const [myAnswerCorrect, setMyAnswerCorrect] = useState<boolean | null>(null);
-  const audioMasterId = sessionStorage.getItem('audio_master_id');
-  const isAudioMaster = !audioMasterId || audioMasterId === myUserId;
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -173,7 +168,7 @@ export default function Game() {
     return token;
   }, [sessionId]);
 
-  const { play, stop, isPlaying, volume, setVolume } = useSpotifyPlayer(getToken);
+  const { play, stop, isPlaying, volume, setVolume, playBlocked, resumeAudio } = useSpotifyPlayer(getToken);
 
   const handleMessage = useCallback((msg: { type: string; payload?: unknown }) => {
     switch (msg.type) {
@@ -231,6 +226,8 @@ export default function Game() {
     if (selectedAnswer || phase !== 'question') return;
     setSelectedAnswer(answerId);
     send('answer:submit', { answerId });
+    // Resume blocked audio on user gesture
+    if (isAudioMaster && playBlocked) resumeAudio();
   }
 
   if (phase === 'finished') return <Podium scores={scores} myUserId={myUserId} />;
@@ -254,7 +251,7 @@ export default function Game() {
       <div className="max-w-lg mx-auto w-full flex flex-col flex-1">
 
         {/* Progress bar + timer */}
-        <div className="flex items-center gap-4 mb-5">
+        <div className="flex items-center gap-4 mb-4">
           <div className="flex-1">
             <div className="flex justify-between text-xs mb-1.5" style={{ color: 'var(--sp-muted)' }}>
               <span>Question {questionIndex + 1}</span>
@@ -268,44 +265,69 @@ export default function Game() {
           <TimerRing timeLeft={timeLeft} />
         </div>
 
-        {/* Question card */}
-        <div className="card mb-5" style={{ minHeight: 160 }}>
-          {/* Album art + info row */}
-          {question.albumArt ? (
-            <div className="flex gap-4 mb-4">
-              <img
-                src={question.albumArt}
-                alt="cover"
-                className="w-20 h-20 rounded-lg flex-shrink-0 object-cover"
-                style={{ border: '1px solid var(--sp-border)' }}
-              />
-              <div className="flex flex-col justify-between min-w-0 flex-1">
-                <span className="text-xs uppercase tracking-widest font-semibold px-2 py-1 rounded self-start"
-                  style={{ background: 'rgba(29,185,84,0.15)', color: 'var(--sp-green)' }}>
-                  {QUESTION_LABELS[question.type] ?? question.type}
-                </span>
-                {isPlaying && (
-                  <div className="flex items-center gap-2">
-                    <AudioWave />
-                    <span style={{ color: 'var(--sp-muted)' }} className="text-xs">Now playing</span>
-                  </div>
+        {/* Album art hero — shown whenever the question has cover art */}
+        {question.albumArt && (
+          <div className="relative w-full mb-4 rounded-2xl overflow-hidden"
+            style={{ aspectRatio: '1 / 1', maxHeight: 220 }}>
+            <img
+              src={question.albumArt}
+              alt="cover"
+              className="w-full h-full object-cover"
+            />
+            {/* Gradient overlay at bottom */}
+            <div className="absolute inset-0"
+              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)' }} />
+            {/* Track info overlay */}
+            <div className="absolute bottom-0 left-0 right-0 px-4 pb-3 flex items-end justify-between">
+              <div className="min-w-0">
+                {question.trackName && (
+                  <p className="text-white font-bold text-sm truncate leading-tight">{question.trackName}</p>
+                )}
+                {question.artistName && (
+                  <p className="text-sm truncate leading-tight" style={{ color: 'rgba(255,255,255,0.75)' }}>{question.artistName}</p>
                 )}
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-xs uppercase tracking-widest font-semibold px-2 py-1 rounded"
-                style={{ background: 'rgba(29,185,84,0.15)', color: 'var(--sp-green)' }}>
-                {QUESTION_LABELS[question.type] ?? question.type}
-              </span>
               {isPlaying && (
-                <div className="flex items-center gap-2">
+                <div className="flex-shrink-0 ml-3">
                   <AudioWave />
-                  <span style={{ color: 'var(--sp-muted)' }} className="text-xs">Playing</span>
                 </div>
               )}
+              {isAudioMaster && playBlocked && !isPlaying && (
+                <button
+                  onClick={resumeAudio}
+                  className="flex-shrink-0 ml-3 flex items-center justify-center rounded-full text-black font-bold text-sm px-3 py-1.5"
+                  style={{ background: 'var(--sp-green)' }}
+                >
+                  ▶ Play
+                </button>
+              )}
             </div>
-          )}
+          </div>
+        )}
+
+        {/* Question card */}
+        <div className="card mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs uppercase tracking-widest font-semibold px-2 py-1 rounded"
+              style={{ background: 'rgba(29,185,84,0.15)', color: 'var(--sp-green)' }}>
+              {QUESTION_LABELS[question.type] ?? question.type}
+            </span>
+            {!question.albumArt && isPlaying && (
+              <div className="flex items-center gap-2">
+                <AudioWave />
+                <span style={{ color: 'var(--sp-muted)' }} className="text-xs">Playing</span>
+              </div>
+            )}
+            {!question.albumArt && isAudioMaster && playBlocked && !isPlaying && (
+              <button
+                onClick={resumeAudio}
+                className="flex items-center gap-1 text-sm font-bold px-3 py-1 rounded-full"
+                style={{ background: 'var(--sp-green)', color: 'black' }}
+              >
+                ▶ Play
+              </button>
+            )}
+          </div>
           <h2 className="text-lg font-bold leading-snug">{question.prompt}</h2>
         </div>
 
@@ -354,7 +376,7 @@ export default function Game() {
 
         {/* Scores during reveal */}
         {phase === 'reveal' && scores.length > 0 && (
-          <div className="card mt-2">
+          <div className="card mt-3">
             <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--sp-muted)' }}>Scores</p>
             <div className="space-y-2">
               {scores.map((s, i) => (
