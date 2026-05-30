@@ -9,7 +9,7 @@ import Analytics from './pages/admin/Analytics';
 export default function App() {
   return (
     <GameProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
           <Route path="/" element={<Navigate to="/join" replace />} />
           <Route path="/join" element={<Join />} />

@@ -52,7 +52,7 @@ export default function Callback() {
 
     apiPost<{ ok: boolean; userId: string; displayName: string }>(
       '/api/auth/spotify/callback',
-      { code, code_verifier: verifier, session_id: sessionId, redirect_uri: `${window.location.origin}/callback` },
+      { code, code_verifier: verifier, session_id: sessionId, redirect_uri: `${window.location.origin}${import.meta.env.BASE_URL}callback` },
     )
       .then(async ({ userId, displayName }) => {
         sessionStorage.setItem('spotify_user_id', userId);

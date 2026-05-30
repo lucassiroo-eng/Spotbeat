@@ -1,7 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: mode === 'production' ? '/Spotbeat/' : '/',
   plugins: [react()],
   server: {
     host: '127.0.0.1',
@@ -11,4 +12,4 @@ export default defineConfig({
       '/ws': { target: 'ws://127.0.0.1:3000', ws: true },
     },
   },
-});
+}));

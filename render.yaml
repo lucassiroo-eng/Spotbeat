@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: spotbeat-api
+    runtime: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm ci && npm run build -w packages/question-engine && npm run build -w apps/api
+    startCommand: node --experimental-sqlite apps/api/dist/index.js
+    healthCheckPath: /health
+    disk:
+      name: sqlite-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        value: sqlite:/data/prod.db
+      - key: SPOTIFY_CLIENT_ID
+        sync: false
+      - key: SPOTIFY_REDIRECT_URI
+        sync: false
+      - key: WEB_URL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

@@ -35,7 +35,7 @@ export default function Join() {
     const params = new URLSearchParams({
       client_id: import.meta.env.VITE_SPOTIFY_CLIENT_ID,
       response_type: 'code',
-      redirect_uri: `${window.location.origin}/callback`,
+      redirect_uri: `${window.location.origin}${import.meta.env.BASE_URL}callback`,
       scope: SCOPES,
       code_challenge_method: 'S256',
       code_challenge: challenge,
