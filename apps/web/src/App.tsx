@@ -5,6 +5,7 @@ import Callback from './pages/Callback';
 import Lobby from './pages/Lobby';
 import Game from './pages/Game';
 import Analytics from './pages/admin/Analytics';
+import Privacy from './pages/Privacy';
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="/lobby/:code" element={<Lobby />} />
           <Route path="/game/:code" element={<Game />} />
           <Route path="/admin/analytics" element={<Analytics />} />
+          <Route path="/privacy" element={<Privacy />} />
         </Routes>
       </BrowserRouter>
     </GameProvider>
