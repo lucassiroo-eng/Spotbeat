@@ -265,42 +265,46 @@ export default function Game() {
           <TimerRing timeLeft={timeLeft} />
         </div>
 
-        {/* Album art hero — shown whenever the question has cover art */}
-        {question.albumArt && (
-          <div className="relative w-full mb-4 rounded-2xl overflow-hidden"
-            style={{ aspectRatio: '1 / 1', maxHeight: 220 }}>
-            <img
-              src={question.albumArt}
-              alt="cover"
-              className="w-full h-full object-cover"
-            />
-            {/* Gradient overlay at bottom */}
+        {/* Media area — always shown when there's a track, placeholder when no art */}
+        {question.trackName && (
+          <div className="relative w-full mb-4 rounded-2xl overflow-hidden" style={{ height: 200 }}>
+            {question.albumArt ? (
+              <img
+                key={question.id}
+                src={question.albumArt}
+                alt="cover"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, #0d1117 0%, #1a1a2e 100%)' }}>
+                <span style={{ fontSize: 64, opacity: 0.4 }}>🎵</span>
+              </div>
+            )}
             <div className="absolute inset-0"
-              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)' }} />
-            {/* Track info overlay */}
+              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 55%)' }} />
             <div className="absolute bottom-0 left-0 right-0 px-4 pb-3 flex items-end justify-between">
-              <div className="min-w-0">
-                {question.trackName && (
-                  <p className="text-white font-bold text-sm truncate leading-tight">{question.trackName}</p>
-                )}
+              <div className="min-w-0 flex-1">
+                <p className="text-white font-bold text-sm truncate leading-tight">{question.trackName}</p>
                 {question.artistName && (
-                  <p className="text-sm truncate leading-tight" style={{ color: 'rgba(255,255,255,0.75)' }}>{question.artistName}</p>
+                  <p className="text-sm truncate leading-tight" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                    {question.artistName}
+                  </p>
                 )}
               </div>
-              {isPlaying && (
-                <div className="flex-shrink-0 ml-3">
+              <div className="flex-shrink-0 ml-3">
+                {isPlaying ? (
                   <AudioWave />
-                </div>
-              )}
-              {isAudioMaster && playBlocked && !isPlaying && (
-                <button
-                  onClick={resumeAudio}
-                  className="flex-shrink-0 ml-3 flex items-center justify-center rounded-full text-black font-bold text-sm px-3 py-1.5"
-                  style={{ background: 'var(--sp-green)' }}
-                >
-                  ▶ Play
-                </button>
-              )}
+                ) : isAudioMaster ? (
+                  <button
+                    onClick={() => playBlocked ? resumeAudio() : play(question.spotifyUri, question.previewUrl, question.trackName, question.artistName)}
+                    className="flex items-center justify-center rounded-full font-bold text-sm px-3 py-1.5"
+                    style={{ background: 'var(--sp-green)', color: 'black' }}
+                  >
+                    ▶ Play
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
         )}
@@ -312,20 +316,10 @@ export default function Game() {
               style={{ background: 'rgba(29,185,84,0.15)', color: 'var(--sp-green)' }}>
               {QUESTION_LABELS[question.type] ?? question.type}
             </span>
-            {!question.albumArt && isPlaying && (
+            {isPlaying && !question.trackName && (
               <div className="flex items-center gap-2">
                 <AudioWave />
-                <span style={{ color: 'var(--sp-muted)' }} className="text-xs">Playing</span>
               </div>
-            )}
-            {!question.albumArt && isAudioMaster && playBlocked && !isPlaying && (
-              <button
-                onClick={resumeAudio}
-                className="flex items-center gap-1 text-sm font-bold px-3 py-1 rounded-full"
-                style={{ background: 'var(--sp-green)', color: 'black' }}
-              >
-                ▶ Play
-              </button>
             )}
           </div>
           <h2 className="text-lg font-bold leading-snug">{question.prompt}</h2>
